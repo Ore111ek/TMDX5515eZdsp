@@ -55,7 +55,8 @@
 #define PUSHBUTTONS_H
 
 void SAR_init(void);
-unsigned int pushbuttons_read(unsigned int step);
+Uint16 pushbuttons_read(unsigned int limit1, unsigned int limit2);
+//unsigned int pushbuttons_read(unsigned int step);
 unsigned int pushbuttons_read_raw(void);
 
 #endif

@@ -60,10 +60,10 @@
 
 
 static unsigned int counter = 0;
-static unsigned int buffer[] = {NoKey, NoKey, NoKey}; 
+static unsigned int buffer[] = {NoKey, NoKey, NoKey};
 static unsigned int last_value = NoKey;
-static unsigned int step = 1;
-static enum {IDLE, UP, DOWN } state = IDLE;
+Uint16 step = 0x0101;
+static enum {IDLE, UP, NEXT } state = IDLE;
 
 /* ------------------------------------------------------------------------ *
  *                                                                          *
@@ -98,20 +98,19 @@ void SAR_init(void)
 /*                                                                           */
 /*****************************************************************************/
 
-
-unsigned int pushbuttons_read(unsigned int limit)
+Uint16 pushbuttons_read(unsigned int limit1, unsigned int limit2)
 {
  unsigned int value;
 
  if ( counter == 0)
  {
     *SARCTRL = 0xB400;  /* Start SAR for channel 3. One conversion only */
-	counter++;
+    counter++;
  }
  else if ( counter >= TIMEOUT_10ms)
  {
-   value = *SARDATA; /* Read ADC */  
-   
+   value = *SARDATA; /* Read ADC */
+
    if ( value & 0x8000)
    {
     /* Still doing ADC convesion. Wait.  */
@@ -120,42 +119,42 @@ unsigned int pushbuttons_read(unsigned int limit)
    else
    {
     buffer[2] = buffer[1];
-	buffer[1] = buffer[0]; /* Shuffle values along one place */
+    buffer[1] = buffer[0]; /* Shuffle values along one place */
 
-	value &= 0x3FF; /* 10-bit ADC value */
+    value &= 0x3FF; /* 10-bit ADC value */
 
      /* Account for tolerance in measurement */
     if((value < SW1 + 12) && (value > SW1 - 12))
       {
         value = SW1;
-      }  
+      }
     else if((value < SW2 + 12) && (value > SW2 - 12))
       {
         value = SW2;
-      }  
+      }
     else if((value < SW12 + 12) && (value > SW12 - 12))
       {
         value = SW12;
-      }  
+      }
     else if((value < NoKey + 12) && (value > NoKey - 12))
       {
         value = NoKey;
-      }  
- 	
-	buffer[0] = value;
-   
-    if ( (buffer[0] == buffer[1]) && (buffer[1] == buffer[2]) )
-	{
-      /* Last three values were identical */
- 
-         last_value = value; /* Update with debounced new input */
-	}
-	else
-    {
-	  /* Switches have changed but not debounced. Default to last_value */
-	}
+      }
 
-	counter = 0; /* Start new conversion next time through. */
+    buffer[0] = value;
+
+    if ( (buffer[0] == buffer[1]) && (buffer[1] == buffer[2]) )
+    {
+      /* Last three values were identical */
+
+         last_value = value; /* Update with debounced new input */
+    }
+    else
+    {
+      /* Switches have changed but not debounced. Default to last_value */
+    }
+
+    counter = 0; /* Start new conversion next time through. */
    }
  }
  else
@@ -167,39 +166,39 @@ unsigned int pushbuttons_read(unsigned int limit)
 switch (state)
 {
  case IDLE:
-  if ( last_value == SW2)
+  if (last_value == SW2)
    {
-   	step++;
-   	
-   	if ( step > limit)
-   	 {
-   	  step = 1;
-   	 }
-   	state = UP; 
+    step+=0x0001;
+
+    if ((step & 0x00FF) > limit2)
+     {
+      step = (step & 0xFF00) + 1;
+     }
+    state = UP;
    }
-  else if ( last_value == SW1)
+  else if (last_value == SW1)
   {
-   step--;
-   
-   if ( step == 0)
+   step+=0x0100;
+
+   if ((step >> 8) > limit1)
     {
-     step = limit;	
+     step = step & 0x00FF | 0x0100;
     }
-   state = DOWN;
-  } 
+   state = NEXT;
+  }
   else if ( last_value == SW12)
   {
-   	step = 1;
+    step = 0x0101;
   }
   break;
- 
- 
+
+
  case UP:
- case DOWN:
+ case NEXT:
    if ( last_value == NoKey)
     {
      state = IDLE;
-    } 
+    }
  break;
 }
 
